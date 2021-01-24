@@ -9,7 +9,7 @@ using MPTimer.Attributes;
 
 namespace MPTimer {
     // ReSharper disable once UnusedMember.Global -- plugin entrypoint
-    public class MpTimerPlugin : IDalamudPlugin {
+    public class Plugin : IDalamudPlugin {
         public string Name => "MPTimer";
 
         private const float ActorTickInterval = 3;
@@ -19,7 +19,7 @@ namespace MPTimer {
         private const short CircleOfPower = 738;
 
         private DalamudPluginInterface pluginInterface;
-        private PluginCommandManager<MpTimerPlugin> commandManager;
+        private PluginCommandManager<Plugin> commandManager;
         private Configuration config;
         private PluginUi ui;
 
@@ -34,7 +34,7 @@ namespace MPTimer {
             this.config.Initialize(this.pluginInterface);
             this.ui = new PluginUi(this.config);
 
-            this.commandManager = new PluginCommandManager<MpTimerPlugin>(this, this.pluginInterface);
+            this.commandManager = new PluginCommandManager<Plugin>(this, this.pluginInterface);
 
             this.pluginInterface.UiBuilder.OnBuildUi += this.ui.Draw;
             this.pluginInterface.UiBuilder.OnOpenConfigUi += ShowConfigWindow;
