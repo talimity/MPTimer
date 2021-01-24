@@ -1,0 +1,11 @@
+﻿{
+  "Name": "MPTimer",
+  "Author": "Talim",
+  "Description": "Provides a status bar showing the time until your next MP tick for black mages.",
+  "RepoUrl": "https://github.com/talimity/mptimer",
+  "InternalName:": "MPTimer",
+  "AssemblyVersion": "1.2.0.1", 
+  "Tags": ["blm", "combat", "qol"],
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 2
+}
