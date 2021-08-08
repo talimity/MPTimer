@@ -8,7 +8,7 @@ using ImGuiNET;
 using MPTimer.Attributes;
 
 namespace MPTimer {
-    // ReSharper disable once UnusedMember.Global -- plugin entrypoint
+    // ReSharper disable once UnusedType.Global -- plugin entrypoint
     public class Plugin : IDalamudPlugin {
         public string Name => "MPTimer";
 
@@ -30,14 +30,14 @@ namespace MPTimer {
         public void Initialize(DalamudPluginInterface dpi) {
             this.pluginInterface = dpi;
 
-            this.config = (Configuration) this.pluginInterface.GetPluginConfig() ?? new Configuration();
+            this.config = (Configuration)this.pluginInterface.GetPluginConfig() ?? new Configuration();
             this.config.Initialize(this.pluginInterface);
-            
+
             this.commandManager = new PluginCommandManager<Plugin>(this, this.pluginInterface);
 
             this.ui = new PluginUi(this.config);
             this.pluginInterface.UiBuilder.OnBuildUi += this.ui.Draw;
-            this.pluginInterface.UiBuilder.OnOpenConfigUi += ShowConfigWindow;
+            this.pluginInterface.UiBuilder.OnOpenConfigUi += OpenConfigUi;
             this.pluginInterface.Framework.OnUpdateEvent += FrameworkOnOnUpdateEvent;
             this.pluginInterface.ClientState.TerritoryChanged += TerritoryChanged;
         }
@@ -103,9 +103,17 @@ namespace MPTimer {
             lastMpValue = -1;
         }
 
+        private void OpenConfigUi(object sender, EventArgs e) {
+            ShowConfigWindow();
+        }
+
         [Command("/mptimer")]
         [HelpMessage("Displays MPTimer's configuration window.")]
-        private void ShowConfigWindow(object sender, EventArgs e) {
+        public void DefaultCommand(string command, string args) {
+            ShowConfigWindow();
+        }
+
+        private void ShowConfigWindow() {
             this.ui.ConfigVisible = true;
         }
 
@@ -118,7 +126,7 @@ namespace MPTimer {
             this.pluginInterface.SavePluginConfig(this.config);
 
             this.pluginInterface.UiBuilder.OnBuildUi -= this.ui.Draw;
-            this.pluginInterface.UiBuilder.OnOpenConfigUi -= ShowConfigWindow;
+            this.pluginInterface.UiBuilder.OnOpenConfigUi -= OpenConfigUi;
             this.pluginInterface.Framework.OnUpdateEvent -= FrameworkOnOnUpdateEvent;
             this.pluginInterface.ClientState.TerritoryChanged -= TerritoryChanged;
 

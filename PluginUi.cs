@@ -72,7 +72,7 @@ namespace MPTimer {
             var drawList = ImGui.GetWindowDrawList();
             drawList.AddRectFilled(topLeft + barFillPosOffset, bottomRight + barFillSizeOffset, barBackgroundColor);
             drawList.AddRectFilled(topLeft + barFillPosOffset, filledSegmentEnd, barFillColor);
-            drawList.AddRect(topLeft, bottomRight, barBorderColor, cornerSize, ImDrawCornerFlags.All, borderThickness);
+            drawList.AddRect(topLeft, bottomRight, barBorderColor, cornerSize, ImDrawFlags.RoundCornersAll, borderThickness);
 
             // Draw Fire III threshold mark
             if (FireThreshold > 0) {
