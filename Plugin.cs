@@ -90,7 +90,7 @@ namespace MPTimer {
                 // TODO: Make this configurable or figure out the wizardry involved querying the real value
                 // 1.5 is a conservative value that should cover most (all?) achievable spellspeed amounts
                 const float fastFireCastTime = 1.5f;
-                this.ui.FireThreshold = 3 - (fastFireCastTime * (leyLinesActive ? 0.85 : 1)) - gracePeriod;
+                this.ui.FireThreshold = 3 - (fastFireCastTime * (leyLinesActive ? 0.85 : 1) - gracePeriod);
             } else {
                 this.ui.FireThreshold = -1;
             }
