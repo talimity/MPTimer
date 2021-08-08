@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="1.2.0" />
+    <PackageReference Include="DalamudPackager" Version="1.2.2" />
   </ItemGroup>
 
   <ItemGroup>

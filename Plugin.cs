@@ -27,15 +27,15 @@ namespace MPTimer {
         private double lastTickTime = 1;
         private int lastMpValue = -1;
 
-        public void Initialize(DalamudPluginInterface pluginInterface) {
-            this.pluginInterface = pluginInterface;
+        public void Initialize(DalamudPluginInterface dpi) {
+            this.pluginInterface = dpi;
 
             this.config = (Configuration) this.pluginInterface.GetPluginConfig() ?? new Configuration();
             this.config.Initialize(this.pluginInterface);
-            this.ui = new PluginUi(this.config);
-
+            
             this.commandManager = new PluginCommandManager<Plugin>(this, this.pluginInterface);
 
+            this.ui = new PluginUi(this.config);
             this.pluginInterface.UiBuilder.OnBuildUi += this.ui.Draw;
             this.pluginInterface.UiBuilder.OnOpenConfigUi += ShowConfigWindow;
             this.pluginInterface.Framework.OnUpdateEvent += FrameworkOnOnUpdateEvent;
