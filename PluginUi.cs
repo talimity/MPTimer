@@ -1,4 +1,7 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Drawing;
+using System.Numerics;
+using Dalamud.Plugin;
 using ImGuiNET;
 
 namespace MPTimer {
@@ -18,6 +21,7 @@ namespace MPTimer {
                                                         ImGuiWindowFlags.NoResize |
                                                         ImGuiWindowFlags.NoNav |
                                                         ImGuiWindowFlags.NoInputs;
+        private const string MainWindowName = "MPTimerBar";
 
         private readonly Configuration config;
         private readonly Vector2 barFillPosOffset = new Vector2(1, 1);
@@ -25,7 +29,7 @@ namespace MPTimer {
         private readonly Vector2 barWindowPadding = new Vector2(8, 14);
         private readonly Vector2 barInitialSize = new Vector2(190, 40);
         private readonly Vector2 barInitialPos = new Vector2(800, 500);
-        private readonly Vector2 configInitialSize = new Vector2(250, 305);
+        private readonly Vector2 configInitialSize = new Vector2(300, 310);
         private readonly uint barBorderColor = ImGui.GetColorU32(new Vector4(0.451f, 0.796f, 0.969f, 1f));
         private readonly uint barBackgroundColor = ImGui.GetColorU32(new Vector4(0.031f, 0.173f, 0.332f, 1f));
         private readonly uint barFillColor = ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f));
@@ -49,9 +53,10 @@ namespace MPTimer {
             ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, barWindowPadding);
             var windowFlags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoTitleBar;
             if (this.config.LockBar) windowFlags |= LockedBarFlags;
-            ImGui.Begin("MPTimerBar", windowFlags);
+            ImGui.Begin(MainWindowName, windowFlags);
+            UpdateSavedWindowConfig(ImGui.GetWindowPos(), ImGui.GetWindowSize());
 
-            var progress = (float) ((now - LastTick) / ActorTickInterval);
+            var progress = (float)((now - LastTick) / ActorTickInterval);
             if (progress > 1) progress = 1;
 
             // Setup bar rects
@@ -72,12 +77,13 @@ namespace MPTimer {
             var drawList = ImGui.GetWindowDrawList();
             drawList.AddRectFilled(topLeft + barFillPosOffset, bottomRight + barFillSizeOffset, barBackgroundColor);
             drawList.AddRectFilled(topLeft + barFillPosOffset, filledSegmentEnd, barFillColor);
-            drawList.AddRect(topLeft, bottomRight, barBorderColor, cornerSize, ImDrawFlags.RoundCornersAll, borderThickness);
+            drawList.AddRect(topLeft, bottomRight, barBorderColor, cornerSize, ImDrawFlags.RoundCornersAll,
+                borderThickness);
 
             // Draw Fire III threshold mark
             if (FireThreshold > 0) {
                 const float lineThickness = 4;
-                var thresholdProgress = (float) FireThreshold / ActorTickInterval;
+                var thresholdProgress = (float)FireThreshold / ActorTickInterval;
                 var thresholdPosition = barWidth * thresholdProgress + barWindowPadding.X + windowPosition.X;
                 var thresholdTop = new Vector2(thresholdPosition, topLeft.Y + barFillPosOffset.Y);
                 var thresholdBottom = new Vector2(thresholdPosition + lineThickness, bottomRight.Y - 1);
@@ -89,9 +95,8 @@ namespace MPTimer {
         }
 
         private void DrawConfigWindow() {
-            ImGui.SetNextWindowSize(configInitialSize);
-            ImGui.Begin("MPTimerConfig", ref this.configVisible,
-                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize);
+            ImGui.SetNextWindowSize(configInitialSize, ImGuiCond.Appearing);
+            ImGui.Begin("MPTimer Settings", ref this.configVisible);
 
             var pluginEnabled = this.config.PluginEnabled;
             if (ImGui.Checkbox("Enable plugin", ref pluginEnabled)) {
@@ -103,6 +108,20 @@ namespace MPTimer {
             if (ImGui.Checkbox("Lock bar size and position", ref lockBar)) {
                 this.config.LockBar = lockBar;
                 this.config.Save();
+            }
+
+            if (!this.config.LockBar) {
+                ImGui.Indent();
+                int[] barPosition = { (int)this.config.BarPosition.X, (int)this.config.BarPosition.Y };
+                if (ImGui.DragInt2("Position", ref barPosition[0])) {
+                    ImGui.SetWindowPos(MainWindowName, new Vector2(barPosition[0], barPosition[1]));
+                }
+
+                int[] barSize = { (int)this.config.BarSize.X, (int)this.config.BarSize.Y };
+                if (ImGui.DragInt2("Size", ref barSize[0])) {
+                    ImGui.SetWindowSize(MainWindowName, new Vector2(barSize[0], barSize[1]));
+                }
+                ImGui.Unindent();
             }
 
             var showFireThreshold = this.config.ShowFireThreshold;
@@ -132,13 +151,21 @@ namespace MPTimer {
             ImGui.Unindent();
 
             ImGui.Spacing();
-            ImGui.Text("※Upon entering a new zone or duty, you\n" +
-                       "should cast Blizzard II to re-sync the timer\n" +
-                       "with your character's MP tick.\n\n" +
-                       "Otherwise, it may be inaccurate until your\n" +
-                       "first Umbral Ice phase.");
+            ImGui.TextWrapped("※Upon entering a new zone or duty, you should cast Blizzard II to re-sync the timer " +
+                              "with your character's MP tick.\nOtherwise, it may be inaccurate until your first " +
+                              "Umbral Ice phase.");
 
             ImGui.End();
+        }
+
+        private void UpdateSavedWindowConfig(Vector2 currentPos, Vector2 currentSize) {
+            if (this.config.LockBar ||
+                currentPos.Equals(this.config.BarPosition) && currentSize.Equals(this.config.BarSize)) {
+                return;
+            }
+            this.config.BarPosition = currentPos;
+            this.config.BarSize = currentSize;
+            this.config.Save();
         }
     }
 }
