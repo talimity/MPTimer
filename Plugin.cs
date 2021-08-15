@@ -6,6 +6,8 @@ using Dalamud.Game.Internal;
 using Dalamud.Plugin;
 using ImGuiNET;
 using MPTimer.Attributes;
+using FFXIVClientStructs;
+using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace MPTimer {
     // ReSharper disable once UnusedType.Global -- plugin entrypoint
@@ -14,9 +16,10 @@ namespace MPTimer {
 
         private const float ActorTickInterval = 3;
         private const double PollingInterval = 1d / 30;
-        // StatusEffect IDs as of Patch 5.4
+        // StatusEffect and action IDs as of Patch 5.58
         private const short LucidDreaming = 1204;
         private const short CircleOfPower = 738;
+        private const uint Fire3 = 152;
 
         private DalamudPluginInterface pluginInterface;
         private PluginCommandManager<Plugin> commandManager;
@@ -27,15 +30,16 @@ namespace MPTimer {
         private double lastTickTime = 1;
         private int lastMpValue = -1;
 
-        public void Initialize(DalamudPluginInterface dpi) {
+        public unsafe void Initialize(DalamudPluginInterface dpi) {
             this.pluginInterface = dpi;
 
             this.config = (Configuration)this.pluginInterface.GetPluginConfig() ?? new Configuration();
             this.config.Initialize(this.pluginInterface);
 
+            Resolver.Initialize();
+            this.ui = new PluginUi(this.config);
             this.commandManager = new PluginCommandManager<Plugin>(this, this.pluginInterface);
 
-            this.ui = new PluginUi(this.config);
             this.pluginInterface.UiBuilder.OnBuildUi += this.ui.Draw;
             this.pluginInterface.UiBuilder.OnOpenConfigUi += OpenConfigUi;
             this.pluginInterface.Framework.OnUpdateEvent += FrameworkOnOnUpdateEvent;
@@ -60,7 +64,7 @@ namespace MPTimer {
             return this.config.PluginEnabled;
         }
 
-        private void FrameworkOnOnUpdateEvent(Framework framework) {
+        private unsafe void FrameworkOnOnUpdateEvent(Framework framework) {
             if (!PluginEnabled()) {
                 this.ui.BarVisible = false;
                 return;
@@ -70,6 +74,9 @@ namespace MPTimer {
             var now = ImGui.GetTime();
             if (now - lastUpdate < PollingInterval) return;
             lastUpdate = now;
+
+            PluginLog.Information("getAdjustedCastTime: " + ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152));
+            this.ui.FireCastTime = ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152);
 
             var state = this.pluginInterface.ClientState;
             var mp = state.LocalPlayer.CurrentMp;

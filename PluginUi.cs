@@ -14,6 +14,7 @@ namespace MPTimer {
         }
         public double LastTick = 1;
         public double FireThreshold = -1;
+        public double FireCastTime = 0;
 
         private const float ActorTickInterval = 3;
         private const ImGuiWindowFlags LockedBarFlags = ImGuiWindowFlags.NoBackground |
@@ -97,6 +98,8 @@ namespace MPTimer {
         private void DrawConfigWindow() {
             ImGui.SetNextWindowSize(configInitialSize, ImGuiCond.Appearing);
             ImGui.Begin("MPTimer Settings", ref this.configVisible);
+            
+            ImGui.Text("Fire 3 Cast Time: " + FireCastTime);
 
             var pluginEnabled = this.config.PluginEnabled;
             if (ImGui.Checkbox("Enable plugin", ref pluginEnabled)) {

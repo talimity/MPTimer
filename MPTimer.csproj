@@ -11,16 +11,28 @@
     <PackageProjectUrl>https://github.com/talimity/mptimer</PackageProjectUrl>
     <RepositoryUrl>https://github.com/talimity/mptimer.git</RepositoryUrl>
     <PackageVersion>1.0.0.0</PackageVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="DalamudPackager" Version="1.2.2" />
+    <PackageReference Include="ILRepack" Version="2.0.18" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="Dalamud">
       <HintPath Condition="Exists('$(AppData)\XIVLauncher\addon\Hooks\5.2.7.0')">$(AppData)\XIVLauncher\addon\Hooks\5.2.7.0\Dalamud.dll</HintPath>
       <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\FFXIVClientStructs\bin\Release\FFXIVClientStructs.dll</HintPath>
+    </Reference>
+    <Reference Include="FFXIVClientStructs.Common, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\FFXIVClientStructs\bin\Release\FFXIVClientStructs.Common.dll</HintPath>
     </Reference>
     <Reference Include="ImGui.NET">
       <HintPath Condition="Exists('$(AppData)\XIVLauncher\addon\Hooks\5.2.7.0')">$(AppData)\XIVLauncher\addon\Hooks\5.2.7.0\ImGui.NET.dll</HintPath>
@@ -44,4 +56,11 @@
     </Reference>
   </ItemGroup>
 
+  <Target Name="ILRepack" AfterTargets="Build">
+    <ItemGroup>
+      <InputAssemblies Include="$(TargetPath)" />
+      <InputAssemblies Include="$(TargetDir)*.dll" Exclude="$(TargetPath)" />
+    </ItemGroup>
+    <Exec Command="$(PkgILRepack)\tools\ILRepack.exe /lib:$(DalamudLibPath) /out:$(TargetDir)$(TargetFileName) @(InputAssemblies, ' ')" />
+  </Target>
 </Project>
