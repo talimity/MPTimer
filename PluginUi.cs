@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Numerics;
+using Dalamud.Interface.Components;
 using Dalamud.Plugin;
 using ImGuiNET;
 
@@ -25,15 +26,9 @@ namespace MPTimer {
 
         private readonly Configuration config;
         private readonly Vector2 barFillPosOffset = new Vector2(1, 1);
-        private readonly Vector2 barFillSizeOffset = new Vector2(-2, -2);
+        private readonly Vector2 barFillSizeOffset = new Vector2(-1, 0);
         private readonly Vector2 barWindowPadding = new Vector2(8, 14);
-        private readonly Vector2 barInitialSize = new Vector2(190, 40);
-        private readonly Vector2 barInitialPos = new Vector2(800, 500);
-        private readonly Vector2 configInitialSize = new Vector2(300, 310);
-        private readonly uint barBorderColor = ImGui.GetColorU32(new Vector4(0.451f, 0.796f, 0.969f, 1f));
-        private readonly uint barBackgroundColor = ImGui.GetColorU32(new Vector4(0.031f, 0.173f, 0.332f, 1f));
-        private readonly uint barFillColor = ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f));
-        private readonly uint thresholdFillColor = ImGui.GetColorU32(new Vector4(1f, 0.650f, 0.133f, 1f));
+        private readonly Vector2 configInitialSize = new Vector2(300, 350);
         private double now;
 
         public PluginUi(Configuration config) {
@@ -48,8 +43,8 @@ namespace MPTimer {
         }
 
         private void DrawBarWindow() {
-            ImGui.SetNextWindowSize(barInitialSize, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowPos(barInitialPos, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSize(this.config.BarSize, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowPos(this.config.BarPosition, ImGuiCond.FirstUseEver);
             ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, barWindowPadding);
             var windowFlags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoTitleBar;
             if (this.config.LockBar) windowFlags |= LockedBarFlags;
@@ -75,6 +70,9 @@ namespace MPTimer {
             const float cornerSize = 2f;
             const float borderThickness = 1.35f;
             var drawList = ImGui.GetWindowDrawList();
+            var barBackgroundColor = ImGui.GetColorU32(this.config.BarBackgroundColor);
+            var barFillColor = ImGui.GetColorU32(this.config.BarFillColor);
+            var barBorderColor = ImGui.GetColorU32(this.config.BarBorderColor);
             drawList.AddRectFilled(topLeft + barFillPosOffset, bottomRight + barFillSizeOffset, barBackgroundColor);
             drawList.AddRectFilled(topLeft + barFillPosOffset, filledSegmentEnd, barFillColor);
             drawList.AddRect(topLeft, bottomRight, barBorderColor, cornerSize, ImDrawFlags.RoundCornersAll,
@@ -82,6 +80,7 @@ namespace MPTimer {
 
             // Draw Fire III threshold mark
             if (FireThreshold > 0) {
+                var thresholdFillColor = ImGui.GetColorU32(this.config.FireThresholdColor);
                 const float lineThickness = 4;
                 var thresholdProgress = (float)FireThreshold / ActorTickInterval;
                 var thresholdPosition = barWidth * thresholdProgress + barWindowPadding.X + windowPosition.X;
@@ -104,59 +103,131 @@ namespace MPTimer {
                 this.config.Save();
             }
 
-            var lockBar = this.config.LockBar;
-            if (ImGui.Checkbox("Lock bar size and position", ref lockBar)) {
-                this.config.LockBar = lockBar;
-                this.config.Save();
+            if (ImGui.BeginTabBar("ConfigTabBar", ImGuiTabBarFlags.None)) {
+                DrawAppearanceTab();
+                DrawBehaviorTab();
+                ImGui.EndTabBar();
             }
-
-            if (!this.config.LockBar) {
-                ImGui.Indent();
-                int[] barPosition = { (int)this.config.BarPosition.X, (int)this.config.BarPosition.Y };
-                if (ImGui.DragInt2("Position", ref barPosition[0])) {
-                    ImGui.SetWindowPos(MainWindowName, new Vector2(barPosition[0], barPosition[1]));
-                }
-
-                int[] barSize = { (int)this.config.BarSize.X, (int)this.config.BarSize.Y };
-                if (ImGui.DragInt2("Size", ref barSize[0])) {
-                    ImGui.SetWindowSize(MainWindowName, new Vector2(barSize[0], barSize[1]));
-                }
-                ImGui.Unindent();
-            }
-
-            var showFireThreshold = this.config.ShowFireThreshold;
-            if (ImGui.Checkbox("Show Fire III cast threshold", ref showFireThreshold)) {
-                this.config.ShowFireThreshold = showFireThreshold;
-                this.config.Save();
-            }
-
-            var hideOutOfCombat = this.config.HideOutOfCombat;
-            if (ImGui.Checkbox("Hide while not in combat", ref hideOutOfCombat)) {
-                this.config.HideOutOfCombat = hideOutOfCombat;
-                this.config.Save();
-            }
-
-            ImGui.Indent();
-            var showInDuties = this.config.AlwaysShowInDuties;
-            if (ImGui.Checkbox("Always show while in duties", ref showInDuties)) {
-                this.config.AlwaysShowInDuties = showInDuties;
-                this.config.Save();
-            }
-
-            var showWithHostileTarget = this.config.AlwaysShowWithHostileTarget;
-            if (ImGui.Checkbox("Always show with enemy target", ref showWithHostileTarget)) {
-                this.config.AlwaysShowWithHostileTarget = showWithHostileTarget;
-                this.config.Save();
-            }
-            ImGui.Unindent();
+            ImGui.Separator();
 
             ImGui.Spacing();
+
             ImGui.TextWrapped("※Upon entering a new zone or duty, you should cast Blizzard II to re-sync the timer " +
                               "with your character's MP tick.\nOtherwise, it may be inaccurate until your first " +
                               "Umbral Ice phase.");
 
             ImGui.End();
         }
+
+        private void DrawAppearanceTab() {
+            if (ImGui.BeginTabItem("Appearance")) {
+                var lockBar = this.config.LockBar;
+                if (ImGui.Checkbox("Lock bar size and position", ref lockBar)) {
+                    this.config.LockBar = lockBar;
+                    this.config.Save();
+                }
+
+                if (!this.config.LockBar) {
+                    ImGui.Indent();
+                    int[] barPosition = { (int)this.config.BarPosition.X, (int)this.config.BarPosition.Y };
+                    if (ImGui.DragInt2("Position", ref barPosition[0])) {
+                        ImGui.SetWindowPos(MainWindowName, new Vector2(barPosition[0], barPosition[1]));
+                    }
+
+                    int[] barSize = { (int)this.config.BarSize.X, (int)this.config.BarSize.Y };
+                    if (ImGui.DragInt2("Size", ref barSize[0])) {
+                        ImGui.SetWindowSize(MainWindowName, new Vector2(barSize[0], barSize[1]));
+                    }
+                    ImGui.Unindent();
+                }
+
+                var showFireThreshold = this.config.ShowFireThreshold;
+                if (ImGui.Checkbox("Show Fire III cast threshold", ref showFireThreshold)) {
+                    this.config.ShowFireThreshold = showFireThreshold;
+                    this.config.Save();
+                }
+
+                ImGui.Text("Fire III Threshold Color");
+                ImGui.SameLine();
+                var newFireThresholdColor = ImGuiComponents.ColorPickerWithPalette(1, "Fire III Threshold Color",
+                    this.config.FireThresholdColor);
+                ImGui.SameLine();
+                if (ImGui.Button("Reset##ResetFireThresholdColor")) {
+                    this.config.ResetPropertyToDefault("FireThresholdColor");
+                    newFireThresholdColor = this.config.FireThresholdColor;
+                }
+
+                ImGui.Text("Bar Background Color");
+                ImGui.SameLine();
+                var newBarBackgroundColor = ImGuiComponents.ColorPickerWithPalette(2, "Bar Background Color",
+                    this.config.BarBackgroundColor);
+                ImGui.SameLine();
+                if (ImGui.Button("Reset##ResetBarBackgroundColor")) {
+                    this.config.ResetPropertyToDefault("BarBackgroundColor");
+                    newBarBackgroundColor = this.config.BarBackgroundColor;
+                }
+
+                ImGui.Text("Bar Fill Color");
+                ImGui.SameLine();
+                var newBarFillColor = ImGuiComponents.ColorPickerWithPalette(3, "Bar Fill Color",
+                    this.config.BarFillColor);
+                ImGui.SameLine();
+                if (ImGui.Button("Reset##ResetBarFillColor")) {
+                    this.config.ResetPropertyToDefault("BarFillColor");
+                    newBarFillColor = this.config.BarFillColor;
+                }
+
+                ImGui.Text("Bar Border Color");
+                ImGui.SameLine();
+                var newBarBorderColor = ImGuiComponents.ColorPickerWithPalette(4, "Bar Border Color",
+                    this.config.BarBorderColor);
+                ImGui.SameLine();
+                if (ImGui.Button("Reset##ResetBarBorderColor")) {
+                    this.config.ResetPropertyToDefault("BarBorderColor");
+                    newBarBorderColor = this.config.BarBorderColor;
+                }
+
+                if (!newFireThresholdColor.Equals(this.config.FireThresholdColor) ||
+                    !newBarBackgroundColor.Equals(this.config.BarBackgroundColor) ||
+                    !newBarFillColor.Equals(this.config.BarFillColor) ||
+                    !newBarBorderColor.Equals(this.config.BarBorderColor)) {
+                    this.config.FireThresholdColor = newFireThresholdColor;
+                    this.config.BarBackgroundColor = newBarBackgroundColor;
+                    this.config.BarFillColor = newBarFillColor;
+                    this.config.BarBorderColor = newBarBorderColor;
+                    this.config.Save();
+                }
+
+                ImGui.EndTabItem();
+            }
+        }
+
+        private void DrawBehaviorTab() {
+            if (ImGui.BeginTabItem("Behavior")) {
+                var hideOutOfCombat = this.config.HideOutOfCombat;
+                if (ImGui.Checkbox("Hide while not in combat", ref hideOutOfCombat)) {
+                    this.config.HideOutOfCombat = hideOutOfCombat;
+                    this.config.Save();
+                }
+
+                ImGui.Indent();
+                var showInDuties = this.config.AlwaysShowInDuties;
+                if (ImGui.Checkbox("Always show while in duties", ref showInDuties)) {
+                    this.config.AlwaysShowInDuties = showInDuties;
+                    this.config.Save();
+                }
+
+                var showWithHostileTarget = this.config.AlwaysShowWithHostileTarget;
+                if (ImGui.Checkbox("Always show with enemy target", ref showWithHostileTarget)) {
+                    this.config.AlwaysShowWithHostileTarget = showWithHostileTarget;
+                    this.config.Save();
+                }
+                ImGui.Unindent();
+
+                ImGui.EndTabItem();
+            }
+        }
+
 
         private void UpdateSavedWindowConfig(Vector2 currentPos, Vector2 currentSize) {
             if (this.config.LockBar ||
