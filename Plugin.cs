@@ -1,13 +1,19 @@
 ﻿using System;
 using System.Linq;
-using Dalamud.Game.ClientState.Actors;
-using Dalamud.Game.ClientState.Structs.JobGauge;
-using Dalamud.Game.Internal;
+using Dalamud.Game;
+using Dalamud.Game.Command;
+using Dalamud.Game.ClientState;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.JobGauge;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.IoC;
 using Dalamud.Plugin;
 using ImGuiNET;
 using MPTimer.Attributes;
 using FFXIVClientStructs;
 using FFXIVClientStructs.FFXIV.Client.Game;
+
 
 namespace MPTimer {
     // ReSharper disable once UnusedType.Global -- plugin entrypoint
@@ -21,40 +27,43 @@ namespace MPTimer {
         private const short CircleOfPower = 738;
         private const uint Fire3 = 152;
 
-        private DalamudPluginInterface pluginInterface;
+        [PluginService] public DalamudPluginInterface Interface { get; private set; }
         private PluginCommandManager<Plugin> commandManager;
         private Configuration config;
         private PluginUi ui;
+
+        [PluginService] public ClientState State { get; private set; }
+        [PluginService] public Framework Framework { get; private set; }
+        [PluginService] public static Condition Condition { get; private set; }
+        [PluginService] public static JobGauges JobGauges { get; private set; }
 
         private double lastUpdate;
         private double lastTickTime = 1;
         private int lastMpValue = -1;
 
-        public unsafe void Initialize(DalamudPluginInterface dpi) {
-            this.pluginInterface = dpi;
-
-            this.config = (Configuration)this.pluginInterface.GetPluginConfig() ?? new Configuration();
-            this.config.Initialize(this.pluginInterface);
-
+        public Plugin(CommandManager command) {
+            this.config = (Configuration)this.Interface.GetPluginConfig() ?? new Configuration();
+            this.config.Initialize(this.Interface);
+            
             Resolver.Initialize();
-            this.ui = new PluginUi(this.config);
-            this.commandManager = new PluginCommandManager<Plugin>(this, this.pluginInterface);
 
-            this.pluginInterface.UiBuilder.OnBuildUi += this.ui.Draw;
-            this.pluginInterface.UiBuilder.OnOpenConfigUi += OpenConfigUi;
-            this.pluginInterface.Framework.OnUpdateEvent += FrameworkOnOnUpdateEvent;
-            this.pluginInterface.ClientState.TerritoryChanged += TerritoryChanged;
+            this.commandManager = new PluginCommandManager<Plugin>(this, command);
+
+            this.ui = new PluginUi(this.config);
+            this.Interface.UiBuilder.Draw += this.ui.Draw;
+            this.Interface.UiBuilder.OpenConfigUi += OpenConfigUi;
+            Framework.Update += FrameworkOnOnUpdateEvent;
+            State.TerritoryChanged += TerritoryChanged;
         }
 
         private bool PluginEnabled() {
             const uint blackMageJobId = 25;
-            var clientState = this.pluginInterface.ClientState;
 
-            if (clientState.LocalPlayer?.ClassJob.Id != blackMageJobId) return false;
-            var inCombat = clientState.Condition[Dalamud.Game.ClientState.ConditionFlag.InCombat];
+            if (State.LocalPlayer?.ClassJob.Id != blackMageJobId) return false;
+            var inCombat = Condition[ConditionFlag.InCombat];
             if (this.config.HideOutOfCombat && !inCombat) {
-                var inDuty = clientState.Condition[Dalamud.Game.ClientState.ConditionFlag.BoundByDuty];
-                var battleTarget = clientState.Targets.CurrentTarget?.ObjectKind == ObjectKind.BattleNpc;
+                var inDuty = Condition[ConditionFlag.BoundByDuty];
+                var battleTarget = State.LocalPlayer.TargetObject?.ObjectKind == ObjectKind.BattleNpc;
                 var showingBecauseInDuty = this.config.AlwaysShowInDuties && inDuty;
                 var showingBecauseHasTarget = this.config.AlwaysShowWithHostileTarget && battleTarget;
                 if (!(showingBecauseInDuty || showingBecauseHasTarget)) {
@@ -74,24 +83,23 @@ namespace MPTimer {
             var now = ImGui.GetTime();
             if (now - lastUpdate < PollingInterval) return;
             lastUpdate = now;
-
+            
             PluginLog.Information("getAdjustedCastTime: " + ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152));
             this.ui.FireCastTime = ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152);
 
-            var state = this.pluginInterface.ClientState;
-            var mp = state.LocalPlayer.CurrentMp;
-            var gauge = state.JobGauges.Get<BLMGauge>();
+            var mp = State.LocalPlayer.CurrentMp;
+            var gauge = JobGauges.Get<BLMGauge>();
             // If Lucid is up (meme optimization tech), just ignore MP gains and rely on the 3 second timer
-            var lucidActive = state.LocalPlayer.StatusEffects.Any(e => e.EffectId == LucidDreaming);
+            var lucidActive = State.LocalPlayer.StatusList.Any(e => e.StatusId == LucidDreaming);
             if (!lucidActive && lastMpValue < mp) {
                 // Ignore MP gains in Astral Fire, since they're probably Convert/Ether
-                if (!gauge.InAstralFire()) lastTickTime = now;
+                if (!gauge.InAstralFire) lastTickTime = now;
             } else if (lastTickTime + ActorTickInterval <= now) {
                 lastTickTime += ActorTickInterval;
             }
 
-            if (this.config.ShowFireThreshold && gauge.InUmbralIce()) {
-                var leyLinesActive = state.LocalPlayer.StatusEffects.Any(e => e.EffectId == CircleOfPower);
+            if (this.config.ShowFireThreshold && gauge.InUmbralIce) {
+                var leyLinesActive = State.LocalPlayer.StatusList.Any(e => e.StatusId == CircleOfPower);
                 // Server grace period, after which casts are committed, Umbral Ice is removed, and slidecasting is possible
                 const float gracePeriod = 0.5f;
                 // TODO: Make this configurable or figure out the wizardry involved querying the real value
@@ -103,14 +111,14 @@ namespace MPTimer {
             }
 
             this.ui.LastTick = lastTickTime;
-            lastMpValue = mp;
+            lastMpValue = (int)mp;
         }
 
         private void TerritoryChanged(object sender, ushort e) {
             lastMpValue = -1;
         }
 
-        private void OpenConfigUi(object sender, EventArgs e) {
+        private void OpenConfigUi() {
             ShowConfigWindow();
         }
 
@@ -130,14 +138,14 @@ namespace MPTimer {
 
             this.commandManager.Dispose();
 
-            this.pluginInterface.SavePluginConfig(this.config);
+            this.Interface.SavePluginConfig(this.config);
 
-            this.pluginInterface.UiBuilder.OnBuildUi -= this.ui.Draw;
-            this.pluginInterface.UiBuilder.OnOpenConfigUi -= OpenConfigUi;
-            this.pluginInterface.Framework.OnUpdateEvent -= FrameworkOnOnUpdateEvent;
-            this.pluginInterface.ClientState.TerritoryChanged -= TerritoryChanged;
+            this.Interface.UiBuilder.Draw -= this.ui.Draw;
+            this.Interface.UiBuilder.OpenConfigUi -= OpenConfigUi;
+            Framework.Update -= FrameworkOnOnUpdateEvent;
+            State.TerritoryChanged -= TerritoryChanged;
 
-            this.pluginInterface.Dispose();
+            this.Interface.Dispose();
         }
 
         public void Dispose() {
