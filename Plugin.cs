@@ -8,11 +8,12 @@ using Dalamud.Game.ClientState.JobGauge;
 using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.IoC;
+using Dalamud.Logging;
 using Dalamud.Plugin;
-using ImGuiNET;
-using MPTimer.Attributes;
 using FFXIVClientStructs;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using ImGuiNET;
+using MPTimer.Attributes;
 
 
 namespace MPTimer {
@@ -84,8 +85,8 @@ namespace MPTimer {
             if (now - lastUpdate < PollingInterval) return;
             lastUpdate = now;
             
-            PluginLog.Information("getAdjustedCastTime: " + ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152));
-            this.ui.FireCastTime = ActionManager.Instance()->GetAdjustedCastTime(ActionType.Spell, 152);
+            PluginLog.Information("getAdjustedCastTime: " + ActionManager.Instance()->GetAdjustedRecastTime(ActionType.Spell, Fire3));
+            this.ui.FireCastTime = ActionManager.Instance()->GetAdjustedRecastTime(ActionType.Spell, Fire3);
 
             var mp = State.LocalPlayer.CurrentMp;
             var gauge = JobGauges.Get<BLMGauge>();
